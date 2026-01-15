@@ -1,0 +1,211 @@
+# Default values for devops-monitor
+
+# Global settings
+global:
+  # Image pull secrets for private registries
+  imagePullSecrets: []
+
+# Backend configuration
+backend:
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/cfircoo/devops-platform/gh-monitor
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  # Environment variables
+  env:
+    DATABASE_ECHO: "false"
+    TOKEN_SERVICE_URL: "https://gh-webhook-router.cfir.workers.dev"
+
+  # Liveness and readiness probes
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/cfircoo/devops-platform/frontend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+  service:
+    type: ClusterIP
+    port: 3000
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+  # Environment variables
+  env:
+    VITE_API_URL: ""  # Will default to backend service URL
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# PostgreSQL configuration (deploy PostgreSQL in cluster)
+postgresql:
+  # Set to false to use an external database
+  enabled: true
+
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+
+  auth:
+    username: postgres
+    password: postgres
+    database: gha_monitor
+
+  service:
+    type: ClusterIP
+    port: 5432
+
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""  # Use default storage class if empty
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# External Database configuration (when postgresql.enabled=false)
+externalDatabase:
+  # Full connection URL (takes precedence over individual fields)
+  # Example: postgresql+asyncpg://user:pass@host:5432/dbname
+  url: ""
+
+  # Or specify individual connection parameters
+  host: ""
+  port: 5432
+  username: postgres
+  password: ""
+  database: gha_monitor
+
+  # Use existing secret for password
+  # Secret should have key: database-password
+  existingSecret: ""
+
+# Database migrations job
+migrations:
+  enabled: true
+  # Use same image as backend
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300
+
+# External Ingress configuration (for backend API - receives GitHub webhooks)
+ingressExternal:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # For external-facing ingress, you might want:
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+  hosts:
+    - host: api.devops-monitor.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+  tls: []
+  #  - secretName: devops-monitor-api-tls
+  #    hosts:
+  #      - api.devops-monitor.example.com
+
+# Internal Ingress configuration (for frontend UI - internal access only)
+ingressInternal:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx-internal
+    # For internal ingress, you might use a different ingress class
+    # nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
+  hosts:
+    - host: devops-monitor.internal
+      paths:
+        - path: /
+          pathType: Prefix
+
+  tls: []
+  #  - secretName: devops-monitor-internal-tls
+  #    hosts:
+  #      - devops-monitor.internal
+
+# Secrets configuration
+secrets:
+  # GitHub webhook secret (required)
+  githubWebhookSecret: ""
+
+  # GitHub App ID (required)
+  githubAppId: ""
+
+  # GitHub private key - provide as base64 encoded
+  githubPrivateKey: ""
+
+  # Or reference an existing secret
+  existingSecret: ""
+
+# ServiceAccount configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000

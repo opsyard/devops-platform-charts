@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "devops-monitor.fullname" . }}-backend
+  labels:
+    {{- include "devops-monitor.backend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "devops-monitor.backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "devops-monitor.backend.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      {{- include "devops-monitor.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "devops-monitor.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.postgresql.enabled }}
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z {{ include "devops-monitor.fullname" . }}-postgresql {{ .Values.postgresql.service.port }}; do echo waiting for postgres; sleep 2; done;']
+      {{- end }}
+      containers:
+        - name: backend
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "devops-monitor.databaseSecretName" . }}
+                  key: database-password
+            - name: DATABASE_URL
+              value: {{ include "devops-monitor.databaseUrl" . | quote }}
+            - name: GITHUB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "devops-monitor.secretName" . }}
+                  key: github-webhook-secret
+                  optional: true
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "devops-monitor.secretName" . }}
+                  key: github-app-id
+                  optional: true
+          envFrom:
+            - configMapRef:
+                name: {{ include "devops-monitor.fullname" . }}-config
+          {{- if .Values.secrets.githubPrivateKey }}
+          volumeMounts:
+            - name: github-private-key
+              mountPath: /app/private-key.pem
+              subPath: private-key.pem
+              readOnly: true
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.backend.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.backend.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+      {{- if .Values.secrets.githubPrivateKey }}
+      volumes:
+        - name: github-private-key
+          secret:
+            secretName: {{ include "devops-monitor.secretName" . }}
+            items:
+              - key: github-private-key
+                path: private-key.pem
+      {{- end }}
+      {{- with .Values.backend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

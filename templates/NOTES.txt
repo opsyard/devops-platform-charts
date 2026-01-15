@@ -1,0 +1,77 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named: {{ .Release.Name }}
+
+To get the application URLs:
+
+{{- if .Values.ingressExternal.enabled }}
+=== External Ingress (Backend API) ===
+{{- range $host := .Values.ingressExternal.hosts }}
+  http{{ if $.Values.ingressExternal.tls }}s{{ end }}://{{ $host.host }}
+{{- end }}
+  API Docs: http{{ if .Values.ingressExternal.tls }}s{{ end }}://{{ (index .Values.ingressExternal.hosts 0).host }}/docs
+{{- end }}
+
+{{- if .Values.ingressInternal.enabled }}
+=== Internal Ingress (Frontend UI) ===
+{{- range $host := .Values.ingressInternal.hosts }}
+  http{{ if $.Values.ingressInternal.tls }}s{{ end }}://{{ $host.host }}
+{{- end }}
+{{- end }}
+
+{{- if not (or .Values.ingressExternal.enabled .Values.ingressInternal.enabled) }}
+
+=== No Ingress Enabled - Use Port Forwarding ===
+
+1. Backend API:
+{{- if contains "NodePort" .Values.backend.service.type }}
+   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "devops-monitor.fullname" . }}-backend)
+   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo "Backend: http://$NODE_IP:$NODE_PORT"
+{{- else if contains "LoadBalancer" .Values.backend.service.type }}
+   NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "devops-monitor.fullname" . }}-backend --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+   echo "Backend: http://$SERVICE_IP:{{ .Values.backend.service.port }}"
+{{- else if contains "ClusterIP" .Values.backend.service.type }}
+   kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "devops-monitor.fullname" . }}-backend {{ .Values.backend.service.port }}:{{ .Values.backend.service.port }}
+   echo "Backend: http://127.0.0.1:{{ .Values.backend.service.port }}"
+{{- end }}
+
+{{- if .Values.frontend.enabled }}
+
+2. Frontend:
+{{- if contains "NodePort" .Values.frontend.service.type }}
+   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "devops-monitor.fullname" . }}-frontend)
+   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo "Frontend: http://$NODE_IP:$NODE_PORT"
+{{- else if contains "LoadBalancer" .Values.frontend.service.type }}
+   NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "devops-monitor.fullname" . }}-frontend --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+   echo "Frontend: http://$SERVICE_IP:{{ .Values.frontend.service.port }}"
+{{- else if contains "ClusterIP" .Values.frontend.service.type }}
+   kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "devops-monitor.fullname" . }}-frontend {{ .Values.frontend.service.port }}:{{ .Values.frontend.service.port }}
+   echo "Frontend: http://127.0.0.1:{{ .Values.frontend.service.port }}"
+{{- end }}
+{{- end }}
+{{- end }}
+
+=== Database Migrations ===
+Migrations run automatically as a Helm hook after install/upgrade.
+To check migration status:
+  kubectl logs -n {{ .Release.Namespace }} job/{{ include "devops-monitor.fullname" . }}-migrations
+
+=== PostgreSQL ===
+To connect to the database:
+  kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "devops-monitor.fullname" . }}-postgresql 5432:5432
+  psql -h 127.0.0.1 -U {{ .Values.postgresql.auth.username }} -d {{ .Values.postgresql.auth.database }}
+
+=== Useful Commands ===
+# Check all pods
+kubectl get pods -n {{ .Release.Namespace }}
+
+# Check logs
+kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/component=backend
+kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/component=frontend
+
+# Check ingress
+kubectl get ingress -n {{ .Release.Namespace }}

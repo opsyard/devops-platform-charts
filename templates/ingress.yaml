@@ -1,0 +1,91 @@
+{{/*
+External Ingress - for backend API (receives GitHub webhooks from internet)
+*/}}
+{{- if .Values.ingressExternal.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "devops-monitor.fullname" . }}-external
+  labels:
+    {{- include "devops-monitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ingress-external
+  {{- with .Values.ingressExternal.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingressExternal.className }}
+  ingressClassName: {{ .Values.ingressExternal.className }}
+  {{- end }}
+  {{- if .Values.ingressExternal.tls }}
+  tls:
+    {{- range .Values.ingressExternal.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingressExternal.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "devops-monitor.fullname" $ }}-backend
+                port:
+                  number: {{ $.Values.backend.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+---
+{{/*
+Internal Ingress - for frontend UI (internal network access only)
+*/}}
+{{- if .Values.ingressInternal.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "devops-monitor.fullname" . }}-internal
+  labels:
+    {{- include "devops-monitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ingress-internal
+  {{- with .Values.ingressInternal.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingressInternal.className }}
+  ingressClassName: {{ .Values.ingressInternal.className }}
+  {{- end }}
+  {{- if .Values.ingressInternal.tls }}
+  tls:
+    {{- range .Values.ingressInternal.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingressInternal.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "devops-monitor.fullname" $ }}-frontend
+                port:
+                  number: {{ $.Values.frontend.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

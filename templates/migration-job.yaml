@@ -1,0 +1,51 @@
+{{- if .Values.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "devops-monitor.fullname" . }}-migrations
+  labels:
+    {{- include "devops-monitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrations
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.migrations.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "devops-monitor.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrations
+    spec:
+      {{- include "devops-monitor.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "devops-monitor.serviceAccountName" . }}
+      restartPolicy: OnFailure
+      {{- if .Values.postgresql.enabled }}
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z {{ include "devops-monitor.fullname" . }}-postgresql {{ .Values.postgresql.service.port }}; do echo waiting for postgres; sleep 2; done;']
+      {{- end }}
+      containers:
+        - name: migrations
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["python", "-m", "alembic", "upgrade", "head"]
+          env:
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "devops-monitor.databaseSecretName" . }}
+                  key: database-password
+            - name: DATABASE_URL
+              value: {{ include "devops-monitor.databaseUrl" . | quote }}
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+{{- end }}
