@@ -3,11 +3,11 @@ entries:
   devops-monitor:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-01-15T22:47:34.115172783Z"
+    created: "2026-01-15T22:49:45.398659779Z"
     description: DevOps Monitor - A multi-tenant GitHub App for monitoring GitHub
       Actions workflows
-    digest: c078d644b03ee4c10a93ff92eb16d62d806bd0fb43d0f2dfb843714ece8f5bc0
-    home: https://github.com/cfircoo/devops-monitor
+    digest: f8f0f6381d3da16ba7a0c297fd9b7b1c2f9b00ec4ef0493de3348c3175e58e1b
+    home: https://github.com/opsyard/devops-monitor
     keywords:
     - github
     - actions
@@ -18,9 +18,9 @@ entries:
     - name: cfir
     name: devops-monitor
     sources:
-    - https://github.com/cfircoo/devops-monitor
+    - https://github.com/opsyard/devops-monitor
     type: application
     urls:
     - https://opsyard.github.io/devops-platform-charts/devops-monitor-0.1.0.tgz
     version: 0.1.0
-generated: "2026-01-15T22:47:34.114166684Z"
+generated: "2026-01-15T22:49:45.397735617Z"
