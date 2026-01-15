@@ -309,8 +309,8 @@ externalDatabase:
 
 ## Source Code
 
-- Application: [github.com/cfircoo/devops-monitor](https://github.com/cfircoo/devops-monitor)
-- Helm Charts: [github.com/cfircoo/devops-platform-charts](https://github.com/cfircoo/devops-platform-charts)
+- Application: [github.com/opsyard/devops-monitor](https://github.com/opsyard/devops-monitor)
+- Helm Charts: [github.com/opsyard/devops-platform-charts](https://github.com/opsyard/devops-platform-charts)
 
 ## License
 
