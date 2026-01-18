@@ -3,10 +3,10 @@ entries:
   devops-monitor:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-01-15T22:49:45.398659779Z"
+    created: "2026-01-18T21:10:11.861011785Z"
     description: DevOps Monitor - A multi-tenant GitHub App for monitoring GitHub
       Actions workflows
-    digest: f8f0f6381d3da16ba7a0c297fd9b7b1c2f9b00ec4ef0493de3348c3175e58e1b
+    digest: 67d9931fe2b3d5255e1d1462009c343fe79f754aae9f2cead8e2b69513ae7e1f
     home: https://github.com/opsyard/devops-monitor
     keywords:
     - github
@@ -23,4 +23,4 @@ entries:
     urls:
     - https://opsyard.github.io/devops-platform-charts/devops-monitor-0.1.0.tgz
     version: 0.1.0
-generated: "2026-01-15T22:49:45.397735617Z"
+generated: "2026-01-18T21:10:11.860070115Z"
