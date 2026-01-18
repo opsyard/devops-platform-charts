@@ -12,7 +12,7 @@ backend:
   image:
     repository: ghcr.io/cfircoo/devops-platform/gh-monitor
     pullPolicy: IfNotPresent
-    tag: "latest"
+    tag: "cd8ff3aa9523dd063c0fc0b19a7a23f88014fb40"
 
   service:
     type: ClusterIP
@@ -30,6 +30,7 @@ backend:
   env:
     DATABASE_ECHO: "false"
     TOKEN_SERVICE_URL: "https://gh-webhook-router.cfir.workers.dev"
+    GITHUB_APP_ID: ""
 
   # Liveness and readiness probes
   livenessProbe:
@@ -41,7 +42,7 @@ backend:
 
   readinessProbe:
     httpGet:
-      path: /
+      path: /ready
       port: http
     initialDelaySeconds: 5
     periodSeconds: 5
@@ -67,10 +68,10 @@ frontend:
   resources:
     limits:
       cpu: 200m
-      memory: 256Mi
+      memory: 512Mi
     requests:
       cpu: 50m
-      memory: 128Mi
+      memory: 256Mi
 
   # Environment variables
   env:
@@ -181,20 +182,6 @@ ingressInternal:
   #    hosts:
   #      - devops-monitor.internal
 
-# Secrets configuration
-secrets:
-  # GitHub webhook secret (required)
-  githubWebhookSecret: ""
-
-  # GitHub App ID (required)
-  githubAppId: ""
-
-  # GitHub private key - provide as base64 encoded
-  githubPrivateKey: ""
-
-  # Or reference an existing secret
-  existingSecret: ""
-
 # ServiceAccount configuration
 serviceAccount:
   create: true
@@ -206,6 +193,4 @@ podSecurityContext:
   fsGroup: 1000
 
 # Container security context
-securityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
+securityContext: {}

@@ -129,30 +129,6 @@ Create database URL
 {{- end }}
 
 {{/*
-Database password secret name
-*/}}
-{{- define "devops-monitor.databaseSecretName" -}}
-{{- if .Values.postgresql.enabled }}
-{{- include "devops-monitor.secretName" . }}
-{{- else if .Values.externalDatabase.existingSecret }}
-{{- .Values.externalDatabase.existingSecret }}
-{{- else }}
-{{- include "devops-monitor.secretName" . }}
-{{- end }}
-{{- end }}
-
-{{/*
-Secret name for credentials
-*/}}
-{{- define "devops-monitor.secretName" -}}
-{{- if .Values.secrets.existingSecret }}
-{{- .Values.secrets.existingSecret }}
-{{- else }}
-{{- include "devops-monitor.fullname" . }}
-{{- end }}
-{{- end }}
-
-{{/*
 Image pull secrets
 */}}
 {{- define "devops-monitor.imagePullSecrets" -}}

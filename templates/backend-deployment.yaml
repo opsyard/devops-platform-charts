@@ -15,7 +15,6 @@ spec:
         {{- include "devops-monitor.backend.selectorLabels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:
       {{- include "devops-monitor.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "devops-monitor.serviceAccountName" . }}
@@ -41,47 +40,19 @@ spec:
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "devops-monitor.databaseSecretName" . }}
-                  key: database-password
+                  name: {{ include "devops-monitor.fullname" . }}-postgresql
+                  key: postgres-password
             - name: DATABASE_URL
               value: {{ include "devops-monitor.databaseUrl" . | quote }}
-            - name: GITHUB_WEBHOOK_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "devops-monitor.secretName" . }}
-                  key: github-webhook-secret
-                  optional: true
-            - name: GITHUB_APP_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "devops-monitor.secretName" . }}
-                  key: github-app-id
-                  optional: true
           envFrom:
             - configMapRef:
                 name: {{ include "devops-monitor.fullname" . }}-config
-          {{- if .Values.secrets.githubPrivateKey }}
-          volumeMounts:
-            - name: github-private-key
-              mountPath: /app/private-key.pem
-              subPath: private-key.pem
-              readOnly: true
-          {{- end }}
           livenessProbe:
             {{- toYaml .Values.backend.livenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.backend.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
-      {{- if .Values.secrets.githubPrivateKey }}
-      volumes:
-        - name: github-private-key
-          secret:
-            secretName: {{ include "devops-monitor.secretName" . }}
-            items:
-              - key: github-private-key
-                path: private-key.pem
-      {{- end }}
       {{- with .Values.backend.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

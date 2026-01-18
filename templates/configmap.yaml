@@ -7,6 +7,7 @@ metadata:
 data:
   DATABASE_ECHO: {{ .Values.backend.env.DATABASE_ECHO | quote }}
   TOKEN_SERVICE_URL: {{ .Values.backend.env.TOKEN_SERVICE_URL | quote }}
+  GITHUB_APP_ID: {{ .Values.backend.env.GITHUB_APP_ID | quote }}
   {{- if .Values.frontend.env.VITE_API_URL }}
   VITE_API_URL: {{ .Values.frontend.env.VITE_API_URL | quote }}
   {{- else }}

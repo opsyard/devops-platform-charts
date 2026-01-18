@@ -37,8 +37,8 @@ spec:
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "devops-monitor.databaseSecretName" . }}
-                  key: database-password
+                  name: {{ include "devops-monitor.fullname" . }}-postgresql
+                  key: postgres-password
             - name: DATABASE_URL
               value: {{ include "devops-monitor.databaseUrl" . | quote }}
           resources:
