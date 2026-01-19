@@ -97,6 +97,38 @@ app.kubernetes.io/component: postgresql
 {{- end }}
 
 {{/*
+Webhook labels
+*/}}
+{{- define "devops-monitor.webhook.labels" -}}
+{{ include "devops-monitor.labels" . }}
+app.kubernetes.io/component: webhook
+{{- end }}
+
+{{/*
+Webhook selector labels
+*/}}
+{{- define "devops-monitor.webhook.selectorLabels" -}}
+{{ include "devops-monitor.selectorLabels" . }}
+app.kubernetes.io/component: webhook
+{{- end }}
+
+{{/*
+Event Processor labels
+*/}}
+{{- define "devops-monitor.eventProcessor.labels" -}}
+{{ include "devops-monitor.labels" . }}
+app.kubernetes.io/component: event-processor
+{{- end }}
+
+{{/*
+Event Processor selector labels
+*/}}
+{{- define "devops-monitor.eventProcessor.selectorLabels" -}}
+{{ include "devops-monitor.selectorLabels" . }}
+app.kubernetes.io/component: event-processor
+{{- end }}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "devops-monitor.serviceAccountName" -}}
@@ -108,7 +140,7 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Create database URL
+Create database URL (for backend/event-processor with full access)
 */}}
 {{- define "devops-monitor.databaseUrl" -}}
 {{- if .Values.postgresql.enabled }}
@@ -123,6 +155,27 @@ Create database URL
 {{- $host := .Values.externalDatabase.host }}
 {{- $port := .Values.externalDatabase.port | toString }}
 {{- $user := .Values.externalDatabase.username }}
+{{- $db := .Values.externalDatabase.database }}
+{{- printf "postgresql+asyncpg://%s:$(DATABASE_PASSWORD)@%s:%s/%s" $user $host $port $db }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create webhook database URL (for webhook service with limited access)
+*/}}
+{{- define "devops-monitor.webhookDatabaseUrl" -}}
+{{- if .Values.postgresql.enabled }}
+{{- $host := printf "%s-postgresql" (include "devops-monitor.fullname" .) }}
+{{- $port := .Values.postgresql.service.port | toString }}
+{{- $user := .Values.postgresql.auth.webhookUsername }}
+{{- $db := .Values.postgresql.auth.database }}
+{{- printf "postgresql+asyncpg://%s:$(DATABASE_PASSWORD)@%s:%s/%s" $user $host $port $db }}
+{{- else if .Values.externalDatabase.webhookUrl }}
+{{- .Values.externalDatabase.webhookUrl }}
+{{- else }}
+{{- $host := .Values.externalDatabase.host }}
+{{- $port := .Values.externalDatabase.port | toString }}
+{{- $user := .Values.externalDatabase.webhookUsername | default "webhook_writer" }}
 {{- $db := .Values.externalDatabase.database }}
 {{- printf "postgresql+asyncpg://%s:$(DATABASE_PASSWORD)@%s:%s/%s" $user $host $port $db }}
 {{- end }}

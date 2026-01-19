@@ -81,6 +81,78 @@ frontend:
   tolerations: []
   affinity: {}
 
+# Webhook Service configuration (receives GitHub webhooks)
+webhook:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/cfircoo/devops-platform/gh-webhook-service
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+  service:
+    type: ClusterIP
+    port: 8001
+
+  # Webhook secret for verifying GitHub signatures
+  secret: "change-me-in-production"
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+  # Liveness and readiness probes
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Event Processor configuration (consumes events via PostgreSQL LISTEN/NOTIFY)
+eventProcessor:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/cfircoo/devops-platform/gh-event-processing
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  # Environment variables
+  env:
+    DATABASE_ECHO: "false"
+    WORKER_COUNT: "1"
+    LOG_LEVEL: "INFO"
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
 # PostgreSQL configuration (deploy PostgreSQL in cluster)
 postgresql:
   # Set to false to use an external database
@@ -95,6 +167,9 @@ postgresql:
     username: postgres
     password: postgres
     database: gha_monitor
+    # Webhook service uses a limited-access user
+    webhookUsername: webhook_writer
+    webhookPassword: webhook_pass
 
   service:
     type: ClusterIP
@@ -130,6 +205,11 @@ externalDatabase:
   password: ""
   database: gha_monitor
 
+  # Webhook service connection (limited permissions)
+  webhookUrl: ""  # Optional: Full URL for webhook service
+  webhookUsername: webhook_writer
+  webhookPassword: ""
+
   # Use existing secret for password
   # Secret should have key: database-password
   existingSecret: ""
@@ -141,15 +221,33 @@ migrations:
   backoffLimit: 3
   ttlSecondsAfterFinished: 300
 
-# External Ingress configuration (for backend API - receives GitHub webhooks)
+# Webhook Ingress configuration (for webhook service - receives GitHub webhooks from internet)
+ingressWebhook:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+  hosts:
+    - host: webhook.devops-monitor.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+  tls: []
+  #  - secretName: devops-monitor-webhook-tls
+  #    hosts:
+  #      - webhook.devops-monitor.example.com
+
+# External Ingress configuration (for backend API - internal services)
 ingressExternal:
   enabled: false
   className: ""
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # cert-manager.io/cluster-issuer: letsencrypt-prod
-    # For external-facing ingress, you might want:
-    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
   hosts:
     - host: api.devops-monitor.example.com

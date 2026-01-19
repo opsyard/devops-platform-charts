@@ -1,0 +1,90 @@
+{{- if .Values.postgresql.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "devops-monitor.fullname" . }}-postgresql-init
+  labels:
+    {{- include "devops-monitor.postgresql.labels" . | nindent 4 }}
+data:
+  setup-db-users.sql: |
+    -- Setup restricted database user for webhook service
+    -- This script is run automatically when PostgreSQL container starts for the first time
+
+    -- Create webhook schema (will be created by migration, but ensure it exists)
+    CREATE SCHEMA IF NOT EXISTS webhook;
+
+    -- Create webhook_writer user with limited permissions
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '{{ .Values.postgresql.auth.webhookUsername }}') THEN
+            CREATE USER {{ .Values.postgresql.auth.webhookUsername }} WITH PASSWORD '{{ .Values.postgresql.auth.webhookPassword }}';
+        END IF;
+    END
+    $$;
+
+    -- Grant minimal permissions to webhook_writer
+    -- Connect to database
+    GRANT CONNECT ON DATABASE {{ .Values.postgresql.auth.database }} TO {{ .Values.postgresql.auth.webhookUsername }};
+
+    -- Grant usage on webhook schema
+    GRANT USAGE ON SCHEMA webhook TO {{ .Values.postgresql.auth.webhookUsername }};
+
+    -- Grant INSERT on webhook.events only (created by migration)
+    -- Note: These grants will be effective after the migration creates the tables
+    -- We use ALTER DEFAULT PRIVILEGES to ensure new tables get proper grants
+    ALTER DEFAULT PRIVILEGES IN SCHEMA webhook
+    GRANT INSERT ON TABLES TO {{ .Values.postgresql.auth.webhookUsername }};
+
+    -- Also grant SELECT for deduplication check
+    ALTER DEFAULT PRIVILEGES IN SCHEMA webhook
+    GRANT SELECT ON TABLES TO {{ .Values.postgresql.auth.webhookUsername }};
+
+    -- Grant usage on sequences (needed for auto-generated IDs if any)
+    ALTER DEFAULT PRIVILEGES IN SCHEMA webhook
+    GRANT USAGE ON SEQUENCES TO {{ .Values.postgresql.auth.webhookUsername }};
+
+    -- Explicit grants for tables that may already exist
+    -- These will fail silently if tables don't exist yet
+    DO $$
+    BEGIN
+        -- Grant on events table
+        IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'webhook' AND table_name = 'events') THEN
+            GRANT SELECT, INSERT ON webhook.events TO {{ .Values.postgresql.auth.webhookUsername }};
+        END IF;
+
+        -- No access to failed_events (only backend should access)
+    EXCEPTION
+        WHEN undefined_table THEN
+            -- Tables don't exist yet, will be handled by ALTER DEFAULT PRIVILEGES
+            NULL;
+    END
+    $$;
+
+    -- Grant SELECT on public schema tables for per-installation secret lookup
+    -- The webhook service needs to read webhook_secret from installations table
+    GRANT USAGE ON SCHEMA public TO {{ .Values.postgresql.auth.webhookUsername }};
+
+    -- Grant SELECT on installations table columns needed for secret lookup
+    -- (id, installation_id, state, status, webhook_secret)
+    DO $$
+    BEGIN
+        IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'installations') THEN
+            GRANT SELECT (id, installation_id, state, status, webhook_secret) ON installations TO {{ .Values.postgresql.auth.webhookUsername }};
+        END IF;
+    EXCEPTION
+        WHEN undefined_table THEN
+            NULL;
+    END
+    $$;
+
+    -- Verify user was created
+    DO $$
+    BEGIN
+        IF EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '{{ .Values.postgresql.auth.webhookUsername }}') THEN
+            RAISE NOTICE '{{ .Values.postgresql.auth.webhookUsername }} user created successfully';
+        ELSE
+            RAISE WARNING '{{ .Values.postgresql.auth.webhookUsername }} user was NOT created';
+        END IF;
+    END
+    $$;
+{{- end }}

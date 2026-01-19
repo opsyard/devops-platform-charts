@@ -1,0 +1,74 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "devops-monitor.fullname" . }}-webhook
+  labels:
+    {{- include "devops-monitor.webhook.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.webhook.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "devops-monitor.webhook.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "devops-monitor.webhook.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/postgresql-credentials.yaml") . | sha256sum }}
+    spec:
+      {{- include "devops-monitor.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "devops-monitor.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.postgresql.enabled }}
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z {{ include "devops-monitor.fullname" . }}-postgresql {{ .Values.postgresql.service.port }}; do echo waiting for postgres; sleep 2; done;']
+      {{- end }}
+      containers:
+        - name: webhook
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.webhook.image.repository }}:{{ .Values.webhook.image.tag }}"
+          imagePullPolicy: {{ .Values.webhook.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8001
+              protocol: TCP
+          env:
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "devops-monitor.fullname" . }}-postgresql
+                  key: webhook-password
+            - name: DATABASE_URL
+              value: {{ include "devops-monitor.webhookDatabaseUrl" . | quote }}
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "devops-monitor.fullname" . }}-webhook
+                  key: webhook-secret
+            - name: PORT
+              value: "8001"
+          livenessProbe:
+            {{- toYaml .Values.webhook.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.webhook.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.webhook.resources | nindent 12 }}
+      {{- with .Values.webhook.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webhook.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webhook.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

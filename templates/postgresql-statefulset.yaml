@@ -61,6 +61,12 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: {{ include "devops-monitor.fullname" . }}-postgresql-init
       {{- with .Values.postgresql.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
